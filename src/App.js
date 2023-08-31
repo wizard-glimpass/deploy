@@ -28,7 +28,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         {/* <img src={logo} className="App-logo" alt="logo" /> */}
-        <p>Hey there from Glimpass!</p>
+        <h1>Hey there from Glimpass!</h1><br></br>
         {renderPage()}
       </header>
     </div>
