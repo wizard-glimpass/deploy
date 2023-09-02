@@ -22,15 +22,9 @@ const useLowPassFilter = (alpha) => {
   };
   return applyFilter;
 };
-// const useLowPassFilterX = (alpha) => {
-//   const applyFilterX = (input) => {
-//     const output = alpha * input + (1 - alpha) * previousY;
-//     window.alert(previousY);
-//     setPreviousY(output);
-//     return output;
-//   };
-//   return applyFilter;
-// };
+
+
+
 
 const Direction = () => {
   
@@ -114,16 +108,26 @@ const final_jerk_prev = useRef(0);
     //window.alert(timeDiff);
     //jerk
     
-    final_jerk.current = (event.acceleration.x - filterdataX_prev.current)/(timeDiff/1000);
+    // final_jerk.current = (event.acceleration.x - filterdataX_prev.current)/(timeDiff/1000);
 
-    final_a.current += (final_jerk.current + final_jerk_prev.current)*(timeDiff/2000);
-    final_s.current += (final_a.current + final_a_prev.current)*(timeDiff/2000);
-    d.current += (final_s.current + final_s_prev.current)*(timeDiff/2000);
+    // final_a.current += (final_jerk.current + final_jerk_prev.current)*(timeDiff/2000);
+    // final_s.current += (final_a.current + final_a_prev.current)*(timeDiff/2000);
+    // d.current += (final_s.current + final_s_prev.current)*(timeDiff/2000);
     
-    final_jerk_prev.current = final_jerk.current;
-    final_a_prev.current = final_a.current;
-    final_s_prev.current = final_s.current;
-    filterdataX_prev.current = event.acceleration.x;
+    // final_jerk_prev.current = final_jerk.current;
+    // final_a_prev.current = final_a.current;
+    // final_s_prev.current = final_s.current;
+    // filterdataX_prev.current = event.acceleration.x;
+    const accn_x = parseInt(event.acceleration.x)
+    const accn_y = parseInt(event.acceleration.y)
+    const accn_z = parseInt(event.acceleration.z)
+    const sin_b = Math.sin(parseInt(dirRef.current.beta) * (Math.PI / 180))
+    const sin_g = Math.sin(parseInt(dirRef.current.gamma) * (Math.PI / 180))
+    const cos_b = Math.cos(parseInt(dirRef.current.beta) * (Math.PI / 180))
+    const cos_g = Math.cos(parseInt(dirRef.current.gamma) * (Math.PI / 180))
+
+    //windows.alert(sin_b)
+    final_a.current = (accn_x * sin_b) + (accn_y * sin_g) + (accn_z * cos_b * cos_g)
     setDist(d.current.toFixed(3));
     setFinalSpeed(final_s.current.toFixed(3));
     setLowPassX(parseFloat(final_a.current).toFixed(3));
@@ -171,14 +175,14 @@ const final_jerk_prev = useRef(0);
       <div className="device-orientation-container">
         <div>
           <span>direction: </span>
-          {parseInt(directionData.alpha)} D{deg}
+          {parseInt(directionData.alpha)} {deg}
         </div>
       </div>
 
       
       <div className="device-LowpassX-container">
         <div>
-          <span>LowpassX: </span>
+          <span>Actual Z : </span>
           {lowPassX}
         </div>
       </div>
@@ -192,20 +196,20 @@ const final_jerk_prev = useRef(0);
       </div> */}
 
       
-      <div className="device-Speed-container">
+      {/* <div className="device-Speed-container">
         <div>
           <span>Final Speed for X (LowPass): </span>
           {final_speed} 
         </div>
-      </div>
+      </div> */}
 
       
-      <div className="device-Distance-container">
+      {/* <div className="device-Distance-container">
         <div>
-          <span>Final Distance (for Low-Pass): </span>
+          <span>Final Distances (for Low-Pass): </span>
           {dist} 
         </div>
-      </div>
+      </div> */}
 
 
 
