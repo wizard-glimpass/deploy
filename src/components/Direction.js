@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { readStepDetection,inertialFrame } from './helper';
 
 
   //Speed calculation initialization
@@ -28,6 +29,30 @@ const useLowPassFilter = (alpha) => {
 
 const Direction = () => {
   
+  const initialState = {
+    lastAccelZValue: -9999,
+    lastCheckTime: 0,
+    highLineState: true,
+    lowLineState: true,
+    passageState: false,
+    highLine: 1,
+    highBoundaryLine: 0,
+    highBoundaryLineAlpha: 1.0,
+    highLineMin: 0.50,
+    highLineMax: 1.5,
+    highLineAlpha: 0.0005,
+    lowLine: -1,
+    lowBoundaryLine: 0,
+    lowBoundaryLineAlpha: -1.0,
+    lowLineMax: -0.50,
+    lowLineMin: -1.5,
+    lowLineAlpha: 0.0005,
+    lowPassFilterAlpha: 0.9,
+    step: 0
+  }
+
+  const [state, setState] = useState(initialState);
+
   const [timeDif, setTimeDif] = useState(0);
   
   const [directionData, setDirectionData] = useState({});
@@ -128,6 +153,8 @@ const final_jerk_prev = useRef(0);
 
     //windows.alert(sin_b)
     final_a.current = (accn_x * sin_b) + (accn_y * sin_g) + (accn_z * cos_b * cos_g)
+    const updatedState = readStepDetection(state,  final_a.current);
+    setState(updatedState);
     setDist(d.current.toFixed(3));
     setFinalSpeed(final_s.current.toFixed(3));
     setLowPassX(parseFloat(final_a.current).toFixed(3));
