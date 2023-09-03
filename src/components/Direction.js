@@ -39,8 +39,9 @@ const Direction = () => {
   const [dist, setDist] = useState(0);
 
   
-  const [lowPassX, setLowPassX] = useState(0);
-  const [lowPassY, setLowPassY] = useState(0);
+  const [X, setX] = useState(0);
+  const [Y, setY] = useState(0);
+  const [Z, setZ] = useState(0);
 
   //Low-Pass
   const alpha = 1 / (1 + (1 / (2 * Math.PI * 6)) * 60);
@@ -72,7 +73,9 @@ const initial_a = useRef(0);
 const intial_speed = useRef(0); 
 const final_s = useRef(0); 
 const d = useRef(0); 
-const final_a = useRef(0);
+const final_x = useRef(0);
+const final_y = useRef(0);
+const final_z = useRef(0);
 const filterdataX_prev = useRef(0);
 const prev_time = useRef(Date.now());
 const final_a_prev = useRef(0);
@@ -94,6 +97,7 @@ const final_jerk_prev = useRef(0);
     distRef.current += parseInt(event.acceleration.x) * timeInterval;
     //setDistance(distRef.current);
    // Do stuff with the new orientation data
+  //  dirRef.current.alpha = 360-dirRef.current.alpha
    setDirectionData(dirRef.current);
 
     //LowPass filteredData
@@ -121,16 +125,23 @@ const final_jerk_prev = useRef(0);
     const accn_x = parseInt(event.acceleration.x)
     const accn_y = parseInt(event.acceleration.y)
     const accn_z = parseInt(event.acceleration.z)
+    const sin_a = Math.sin(parseInt(dirRef.current.alpha) * (Math.PI / 180))
     const sin_b = Math.sin(parseInt(dirRef.current.beta) * (Math.PI / 180))
     const sin_g = Math.sin(parseInt(dirRef.current.gamma) * (Math.PI / 180))
+    const cos_a = Math.cos(parseInt(dirRef.current.alpha) * (Math.PI / 180))
     const cos_b = Math.cos(parseInt(dirRef.current.beta) * (Math.PI / 180))
     const cos_g = Math.cos(parseInt(dirRef.current.gamma) * (Math.PI / 180))
 
     //windows.alert(sin_b)
-    final_a.current = (accn_x * sin_b) + (accn_y * sin_g) + (accn_z * cos_b * cos_g)
+    final_x.current = (accn_y * sin_a) + (accn_z * sin_g) + (accn_x * cos_b * cos_g)
+    final_y.current = (accn_z * sin_b) + (accn_x * sin_g *cos_b) + (accn_y * cos_b * cos_a)
+    final_z.current = (accn_x * cos_a * sin_g) + (accn_y * sin_b) + (accn_z * cos_b * cos_g)
+
     setDist(d.current.toFixed(3));
     setFinalSpeed(final_s.current.toFixed(3));
-    setLowPassX(parseFloat(final_a.current).toFixed(3));
+    setX(parseFloat(final_x.current).toFixed(4));
+    setY(parseFloat(final_y.current).toFixed(4));
+    setZ(parseFloat(final_z.current).toFixed(4));
 
     
     
@@ -174,19 +185,32 @@ const final_jerk_prev = useRef(0);
     <>
       <div className="device-orientation-container">
         <div>
-          <span>direction: </span>
+          <span>ddirection: </span>
           {parseInt(directionData.alpha)} {deg}
         </div>
       </div>
 
       
-      <div className="device-LowpassX-container">
+      <div className="device-X-container">
         <div>
-          <span>Actual Z : </span>
-          {lowPassX}
+          <span>Actual X : </span>
+          {X}
         </div>
       </div>
 
+      <div className="device-Y-container">
+        <div>
+          <span>Actual Y : </span>
+          {Y}
+        </div>
+      </div>
+
+      <div className="device-Z-container">
+        <div>
+          <span>Actual Z : </span>
+          {Z}
+        </div>
+      </div>
       
       {/* <div className="device-LowPassY-container">
         <div>
