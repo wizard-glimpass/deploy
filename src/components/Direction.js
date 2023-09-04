@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { readStepDetection, inertialFrame } from './helper';
 
 
   //Speed calculation initialization
@@ -28,6 +29,30 @@ const useLowPassFilter = (alpha) => {
 
 const Direction = () => {
   
+  const initialState = {
+    lastAccelZValue: -9999,
+    lastCheckTime: 0,
+    highLineState: true,
+    lowLineState: true,
+    passageState: false,
+    highLine: 1,
+    highBoundaryLine: 0,
+    highBoundaryLineAlpha: 1.0,
+    highLineMin: 0.50,
+    highLineMax: 1.5,
+    highLineAlpha: 0.0005,
+    lowLine: -1,
+    lowBoundaryLine: 0,
+    lowBoundaryLineAlpha: -1.0,
+    lowLineMax: -0.50,
+    lowLineMin: -1.5,
+    lowLineAlpha: 0.0005,
+    lowPassFilterAlpha: 0.9,
+    step: 0
+  }
+
+  const [state, setState] = useState(initialState);
+
   const [timeDif, setTimeDif] = useState(0);
   
   const [directionData, setDirectionData] = useState({});
@@ -42,6 +67,8 @@ const Direction = () => {
   const [X, setX] = useState(0);
   const [Y, setY] = useState(0);
   const [Z, setZ] = useState(0);
+  const [dx, setdx] = useState(0);
+  const [dy, setdy] = useState(0);
 
   //Low-Pass
   const alpha = 1 / (1 + (1 / (2 * Math.PI * 6)) * 60);
@@ -78,10 +105,16 @@ const final_y = useRef(0);
 const final_z = useRef(0);
 const filterdataX_prev = useRef(0);
 const prev_time = useRef(Date.now());
-const final_a_prev = useRef(0);
-const final_s_prev = useRef(0);
-const final_jerk = useRef(0);
-const final_jerk_prev = useRef(0);
+const sp_x = useRef(0);
+const sp_y = useRef(0);
+const dist_x = useRef(0);
+const dist_y = useRef(0);
+const final = useRef(0);
+const push = useRef(0);
+const sp_z = useRef(0);
+const steps = useRef(-1);
+const step_end = useRef(0);
+
 
 
 
@@ -91,9 +124,9 @@ const final_jerk_prev = useRef(0);
     totalAccX.current += parseInt(event.acceleration.x);
     totalAccY.current += parseInt(event.acceleration.y);
     overTime.current++;
-    const currTime = new Date();
+    //const currTime = new Date();
     //milliseconds to second
-    const timeInterval = (currTime - timeRef.current)/1000;
+    const timeInterval = 0
     distRef.current += parseInt(event.acceleration.x) * timeInterval;
     //setDistance(distRef.current);
    // Do stuff with the new orientation data
@@ -106,42 +139,69 @@ const final_jerk_prev = useRef(0);
     //setLowPassY(parseFloat(filteredDataY).toFixed(2));
     
 
-    const timeDiff = Date.now() - prev_time.current;
-    prev_time.current = Date.now();
-    setTimeDif(timeDiff);
-    //window.alert(timeDiff);
-    //jerk
     
-    // final_jerk.current = (event.acceleration.x - filterdataX_prev.current)/(timeDiff/1000);
+    
+    //setTimeDif(timeDiff);
+    
 
-    // final_a.current += (final_jerk.current + final_jerk_prev.current)*(timeDiff/2000);
-    // final_s.current += (final_a.current + final_a_prev.current)*(timeDiff/2000);
-    // d.current += (final_s.current + final_s_prev.current)*(timeDiff/2000);
-    
-    // final_jerk_prev.current = final_jerk.current;
-    // final_a_prev.current = final_a.current;
-    // final_s_prev.current = final_s.current;
-    // filterdataX_prev.current = event.acceleration.x;
     const accn_x = parseInt(event.acceleration.x)
     const accn_y = parseInt(event.acceleration.y)
     const accn_z = parseInt(event.acceleration.z)
-    const sin_a = Math.sin(parseInt(dirRef.current.alpha) * (Math.PI / 180))
-    const sin_b = Math.sin(parseInt(dirRef.current.beta) * (Math.PI / 180))
-    const sin_g = Math.sin(parseInt(dirRef.current.gamma) * (Math.PI / 180))
-    const cos_a = Math.cos(parseInt(dirRef.current.alpha) * (Math.PI / 180))
-    const cos_b = Math.cos(parseInt(dirRef.current.beta) * (Math.PI / 180))
-    const cos_g = Math.cos(parseInt(dirRef.current.gamma) * (Math.PI / 180))
+    const sin_a = (parseInt(dirRef.current.alpha))// * (Math.PI / 180))
+    const sin_b = (parseInt(dirRef.current.beta))// * (Math.PI / 180))
+    const sin_g = (parseInt(dirRef.current.gamma))// * (Math.PI / 180))
+    // const cos_a = Math.cos(parseInt(dirRef.current.alpha) * (Math.PI / 180))
+    // const cos_b = Math.cos(parseInt(dirRef.current.beta) * (Math.PI / 180))
+    // const cos_g = Math.cos(parseInt(dirRef.current.gamma) * (Math.PI / 180))
 
     //windows.alert(sin_b)
-    final_x.current = (accn_y * sin_a) + (accn_z * sin_g) + (accn_x * cos_b * cos_g)
-    final_y.current = (accn_z * sin_b) + (accn_x * sin_g *cos_b) + (accn_y * cos_b * cos_a)
-    final_z.current = (accn_x * cos_a * sin_g) + (accn_y * sin_b) + (accn_z * cos_b * cos_g)
+    final.current = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),accn_x,accn_y,accn_z)
+    
 
-    setDist(d.current.toFixed(3));
+    //push implementation
+    const timeDiff = (Date.now() - prev_time.current)/1000
+    if (final.current[2] > 0 ) {
+      if (push.current<1) {
+        push.current+=0.334;
+        if (push.current>=1) {
+          sp_x.current=0
+          sp_y.current=0
+          sp_z.current=0
+          if (timeDiff>0.3) {
+            steps.current+=1
+            prev_time.current = Date.now()
+          }
+        }
+    }
+  }
+
+  if (final.current[2] < 0 ) {
+    push.current-=0.51;
+    if (push.current<0) {
+     push.current = 0
+  }
+}
+  if (push.current > 1 ) {
+    sp_x.current+=final.current[0]
+    sp_y.current+=final.current[1]
+    sp_y.current+=final.current[2]
+} 
+    final_x.current = Math.sqrt(sp_x.current*sp_x.current + sp_y.current*sp_y.current )
+    final_y.current = Math.sqrt(sp_x.current*sp_x.current + sp_y.current*sp_y.current + sp_z.current*sp_z.current)
+    final_z.current = final_x.current * final_y.current
+
+
+    // final_a.current = (accn_x * sin_b) + (accn_y * sin_g) + (accn_z * cos_b * cos_g)
+    // const updatedState = readStepDetection(state,  final_a.current);
+    // setState(updatedState);
+    //setDist(final.current);
     setFinalSpeed(final_s.current.toFixed(3));
     setX(parseFloat(final_x.current).toFixed(4));
     setY(parseFloat(final_y.current).toFixed(4));
     setZ(parseFloat(final_z.current).toFixed(4));
+    setdx(parseFloat(dist_x.current).toFixed(4));
+    setdy(parseFloat(steps.current).toFixed(4));
+   
 
     
     
@@ -185,7 +245,7 @@ const final_jerk_prev = useRef(0);
     <>
       <div className="device-orientation-container">
         <div>
-          <span>ddirection: </span>
+          <span>alpha: </span>
           {parseInt(directionData.alpha)} {deg}
         </div>
       </div>
@@ -193,29 +253,39 @@ const final_jerk_prev = useRef(0);
       
       <div className="device-X-container">
         <div>
-          <span>Actual X : </span>
-          {X}
+          <span>betaaa : </span>
+          {dx}
         </div>
       </div>
 
       <div className="device-Y-container">
         <div>
-          <span>Actual Y : </span>
-          {Y}
+          <span>steps : </span>
+          {dy}
         </div>
       </div>
 
       <div className="device-Z-container">
         <div>
-          <span>Actual Z : </span>
+          <span>Horizontal Force : </span>
+          {X}
+        </div>
+      </div>
+      <div className="device-Za-container">
+        <div>
+          <span>Net Force : </span>
+          {Y}
+        </div>
+      </div><div className="device-Zaa-container">
+        <div>
+          <span>realsvar : </span>
           {Z}
         </div>
       </div>
-      
       {/* <div className="device-LowPassY-container">
         <div>
-          <span>LowPassY: </span>
-          {lowPassY} 
+          <span>rate/sec: </span>
+          {dist} 
         </div>
       </div> */}
 
