@@ -100,11 +100,12 @@ const initial_a = useRef(0);
 const intial_speed = useRef(0); 
 const final_s = useRef(0); 
 const d = useRef(0); 
-const final_x = useRef(0);
-const final_y = useRef(0);
+const prev_force = useRef(0);
+const final_force = useRef(0);
 const final_z = useRef(0);
 const filterdataX_prev = useRef(0);
 const prev_time = useRef(Date.now());
+const prev_time_y = useRef(Date.now());
 const sp_x = useRef(0);
 const sp_y = useRef(0);
 const dist_x = useRef(0);
@@ -112,8 +113,20 @@ const dist_y = useRef(0);
 const final = useRef(0);
 const push = useRef(0);
 const sp_z = useRef(0);
-const steps = useRef(-1);
-const step_end = useRef(0);
+const steps = useRef(0);
+const push_y = useRef(0);
+const travel = useRef(0);
+const travel_state = useRef(0);
+const temp_angle = useRef(0);
+const prev_angle = useRef(0);
+const omega_a = useRef(0);
+const omega_a_p = useRef(0);
+const omega_max_p = useRef(0);
+const omega_max = useRef(0);
+const left = useRef(0);
+const right = useRef(0);
+
+
 
 
 
@@ -141,66 +154,105 @@ const step_end = useRef(0);
 
     
     
-    //setTimeDif(timeDiff);
-    
+    const acc_th = 0.1 ;
+    const omega_th = 10;
+    const time_th = 0.3 ; 
+    const angle_th = 10 ; 
+    const force_th = 10 ;
+    const travel_th = 4 ; 
 
-    const accn_x = parseInt(event.acceleration.x)
-    const accn_y = parseInt(event.acceleration.y)
-    const accn_z = parseInt(event.acceleration.z)
+    
+    
+    let accn_x = parseInt(event.acceleration.x)
+    if (Math.abs(accn_x) < acc_th ) { accn_x=0;}
+    let accn_y = parseInt(event.acceleration.y)
+    if (Math.abs(accn_y) < acc_th ) { accn_y=0;}
+    let accn_z = parseInt(event.acceleration.z)
+    if (Math.abs(accn_z) < acc_th ) { accn_z=0;}
     const sin_a = (parseInt(dirRef.current.alpha))// * (Math.PI / 180))
     const sin_b = (parseInt(dirRef.current.beta))// * (Math.PI / 180))
     const sin_g = (parseInt(dirRef.current.gamma))// * (Math.PI / 180))
-    // const cos_a = Math.cos(parseInt(dirRef.current.alpha) * (Math.PI / 180))
-    // const cos_b = Math.cos(parseInt(dirRef.current.beta) * (Math.PI / 180))
-    // const cos_g = Math.cos(parseInt(dirRef.current.gamma) * (Math.PI / 180))
+    const rate_a = parseInt(event.rotationRate.alpha)
+    const rate_b = parseInt(event.rotationRate.beta)
+    const rate_c = parseInt(event.rotationRate.gamma)
 
+
+    if (accn_y < 0 ) {final_force.current+= Math.abs(accn_y)}
     //windows.alert(sin_b)
     final.current = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),accn_x,accn_y,accn_z)
-    
+  
 
     //push implementation
     const timeDiff = (Date.now() - prev_time.current)/1000
     if (final.current[2] > 0 ) {
-      if (push.current<1) {
-        push.current+=0.334;
-        if (push.current>=1) {
-          sp_x.current=0
-          sp_y.current=0
-          sp_z.current=0
-          if (timeDiff>0.3) {
-            steps.current+=1
-            prev_time.current = Date.now()
+
+      if (push.current<1) {push.current+=0.334}
+
+      if (accn_y < 0 && push_y.current<1 ) {push_y.current+=0.334}
+
+      if (push_y.current>=1 && timeDiff> time_th) {
+            push_y.current=1
+            travel.current +=1
+      }
+      if (travel.current >= travel_th) {travel_state.current = 1}
+
+      final_force.current = Math.max(final.current[2], final_force.current)
+      omega_max.current = Math.max(Math.abs(rate_c), omega_max.current)
+      omega_a.current = Math.max(Math.abs(rate_a), omega_a.current)
+
+      if (  (push.current>=1 ) && 
+            (timeDiff> time_th) &&
+            (push_y.current>=1 || travel_state.current == 1)
+            
+          ) {
+            if (  (omega_max.current < 50 && omega_max.current > 10)||
+                    travel_state.current == 0) {
+
+                steps.current+=1 
+                push.current=1
+                prev_time.current = Date.now()
+
+                if (omega_a.current > 0 ) {omega_a_p.current  = omega_a.current }
+                omega_a.current = 0
+
+                if (omega_max.current > 0 ) {omega_max_p.current  = omega_max.current }
+                omega_max.current = 0
+
+                if (final_force.current > 0 ) {prev_force.current  = final_force.current }
+                final_force.current = 0
+          }
+          else {
+            if (omega_max.current > 0 ) {omega_max_p.current  = omega_max.current }
+                omega_max.current = 0
           }
         }
+          {
+
+           }
     }
-  }
 
-  if (final.current[2] < 0 ) {
-    push.current-=0.51;
-    if (push.current<0) {
-     push.current = 0
-  }
-}
-  if (push.current > 1 ) {
-    sp_x.current+=final.current[0]
-    sp_y.current+=final.current[1]
-    sp_y.current+=final.current[2]
-} 
-    final_x.current = Math.sqrt(sp_x.current*sp_x.current + sp_y.current*sp_y.current )
-    final_y.current = Math.sqrt(sp_x.current*sp_x.current + sp_y.current*sp_y.current + sp_z.current*sp_z.current)
-    final_z.current = final_x.current * final_y.current
+    if (final.current[2] <= 0 ) {
+      push.current-=0.51;
+      if (push.current<0) {
+        push.current = 0
+        push_y.current = 0
+        }
+    }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// left-right implementation
 
 
-    // final_a.current = (accn_x * sin_b) + (accn_y * sin_g) + (accn_z * cos_b * cos_g)
-    // const updatedState = readStepDetection(state,  final_a.current);
-    // setState(updatedState);
-    //setDist(final.current);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    sp_x.current=Math.sqrt(prev_force.current*omega_a_p.current*omega_max_p.current)
     setFinalSpeed(final_s.current.toFixed(3));
-    setX(parseFloat(final_x.current).toFixed(4));
-    setY(parseFloat(final_y.current).toFixed(4));
-    setZ(parseFloat(final_z.current).toFixed(4));
-    setdx(parseFloat(dist_x.current).toFixed(4));
-    setdy(parseFloat(steps.current).toFixed(4));
+    setX(parseFloat(omega_a_p.current).toFixed(4));
+    setY(parseFloat(prev_force.current).toFixed(4));
+    setZ(parseFloat(sp_x.current).toFixed(4));
+    setdx(parseFloat(omega_max_p.current).toFixed(4));
+    setdy(parseFloat(steps.current));
    
 
     
@@ -251,12 +303,7 @@ const step_end = useRef(0);
       </div>
 
       
-      <div className="device-X-container">
-        <div>
-          <span>betaaa : </span>
-          {dx}
-        </div>
-      </div>
+     
 
       <div className="device-Y-container">
         <div>
@@ -267,18 +314,26 @@ const step_end = useRef(0);
 
       <div className="device-Z-container">
         <div>
-          <span>Horizontal Force : </span>
+          <span>omega max : </span>
+          {dx}
+        </div>
+      </div>
+
+      <div className="device-Za-container">
+        <div>
+          <span>omega alpha : </span>
           {X}
         </div>
       </div>
-      <div className="device-Za-container">
+      <div className="device-X-container">
         <div>
-          <span>Net Force : </span>
+          <span>max up accn : </span>
           {Y}
         </div>
-      </div><div className="device-Zaa-container">
+      </div>
+      <div className="device-Zaa-container">
         <div>
-          <span>realsvar : </span>
+          <span>dist_var : </span>
           {Z}
         </div>
       </div>
