@@ -123,8 +123,23 @@ const omega_a = useRef(0);
 const omega_a_p = useRef(0);
 const omega_max_p = useRef(0);
 const omega_max = useRef(0);
-const left = useRef(0);
-const right = useRef(0);
+const lrav_prev = useRef(-1);
+const lrav_now = useRef(0);
+const lrav_push = useRef(0);
+const lrav_final = useRef(0);
+const lrah_prev = useRef(-1);
+const lrah_now = useRef(0);
+const lrah_push = useRef(0);
+const lrah_final = useRef(0);
+const lrov_prev = useRef(-1);
+const lrov_now = useRef(0);
+const lrov_push = useRef(0);
+const lrov_final = useRef(0);
+const lroh_prev = useRef(-1);
+const lroh_now = useRef(0);
+const lroh_push = useRef(0);
+const lroh_final = useRef(0);
+
 
 
 
@@ -174,61 +189,79 @@ const right = useRef(0);
     const sin_g = (parseInt(dirRef.current.gamma))// * (Math.PI / 180))
     const rate_a = parseInt(event.rotationRate.alpha)
     const rate_b = parseInt(event.rotationRate.beta)
-    const rate_c = parseInt(event.rotationRate.gamma)
+    let rate_c = parseInt(event.rotationRate.gamma)
+    const final_omega = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),rate_a,rate_b,rate_c)
+    rate_c = final_omega[2]
 
-
-    if (accn_y < 0 ) {final_force.current+= Math.abs(accn_y)}
+    
     //windows.alert(sin_b)
     final.current = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),accn_x,accn_y,accn_z)
-  
+
+
+    // accn vertical
+    if (lrav_prev.current == -1 ) {
+      if (final.current[2] < 0 ) {lrav_push.current-=1}
+      if (lrav_push.current < -10 ) {lrav_now.current = 1}}
+      
+    else {
+      if (final.current[2] > 0 ) {lrav_push.current+=1}
+      if (lrav_push.current > 3 ) {lrav_now.current = -1}}
+    lrav_final.current = lrav_prev.current * lrav_now.current
+
+    // omega horizontal
+    if (lroh_prev.current == -1 ) {
+      if (rate_c < 0 ) {lroh_push.current-=1}
+      if (lroh_push.current < -10 ) {lroh_now.current = 1}}
+      
+    else {
+      if (rate_c > 0 ) {lroh_push.current+=1}
+      if (lroh_push.current > 10 ) {lroh_now.current = -1}}
+    lroh_final.current = lroh_prev.current * lroh_now.current
 
     //push implementation
     const timeDiff = (Date.now() - prev_time.current)/1000
-    if (final.current[2] > 0 ) {
-
+    if (final.current[2] > 0) {
       if (push.current<1) {push.current+=0.334}
-
       if (accn_y < 0 && push_y.current<1 ) {push_y.current+=0.334}
-
       if (push_y.current>=1 && timeDiff> time_th) {
-            push_y.current=1
-            travel.current +=1
-      }
+          push_y.current=1
+          travel.current +=1}
       if (travel.current >= travel_th) {travel_state.current = 1}
 
       final_force.current = Math.max(final.current[2], final_force.current)
       omega_max.current = Math.max(Math.abs(rate_c), omega_max.current)
       omega_a.current = Math.max(Math.abs(rate_a), omega_a.current)
 
-      if (  (push.current>=1 ) && 
-            (timeDiff> time_th) &&
-            (push_y.current>=1 || travel_state.current == 1)
-            
-          ) {
-            if (  (omega_max.current < 50 && omega_max.current > 10)||
-                    travel_state.current == 0) {
+      if (push.current>=1  && 
+          timeDiff> time_th &&
+          (push_y.current>=1 ||
+          travel_state.current == 1)) {
+            if ((omega_max.current < 50 && 
+                 omega_max.current > 5 
+                 && (lroh_final.current == -1 || lrav_final.current==-1  )
+                 ) 
+                 //||travel_state.current == 0
+                 ) {
+                    steps.current+=1 
+                    push.current=1
+                    prev_time.current = Date.now()
+                    lroh_prev.current = lroh_now.current
+                    lroh_push.current = 0
+                    lrav_prev.current = lrav_now.current
+                    lrav_push.current = 0
 
-                steps.current+=1 
-                push.current=1
-                prev_time.current = Date.now()
+                    if (omega_a.current > 0 ) {omega_a_p.current  = omega_a.current }
+                    omega_a.current = 0
 
-                if (omega_a.current > 0 ) {omega_a_p.current  = omega_a.current }
-                omega_a.current = 0
+                    if (omega_max.current > 0 ) {omega_max_p.current  = omega_max.current }
+                    omega_max.current = 0
 
-                if (omega_max.current > 0 ) {omega_max_p.current  = omega_max.current }
-                omega_max.current = 0
+                    if (final_force.current > 0 ) {prev_force.current  = final_force.current }
+                    final_force.current = 0}
 
-                if (final_force.current > 0 ) {prev_force.current  = final_force.current }
-                final_force.current = 0
-          }
-          else {
             if (omega_max.current > 0 ) {omega_max_p.current  = omega_max.current }
-                omega_max.current = 0
-          }
+            omega_max.current = 0
         }
-          {
-
-           }
     }
 
     if (final.current[2] <= 0 ) {
@@ -240,18 +273,18 @@ const right = useRef(0);
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// left-right implementation
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+    //final_z.current = lr_now.current * lr_prev.current
     sp_x.current=Math.sqrt(prev_force.current*omega_a_p.current*omega_max_p.current)
     setFinalSpeed(final_s.current.toFixed(3));
-    setX(parseFloat(omega_a_p.current).toFixed(4));
-    setY(parseFloat(prev_force.current).toFixed(4));
-    setZ(parseFloat(sp_x.current).toFixed(4));
-    setdx(parseFloat(omega_max_p.current).toFixed(4));
+    setX(parseFloat(lrah_final.current).toFixed(4));
+    setY(parseFloat(lrov_final.current).toFixed(4));
+    setZ(parseFloat(lroh_final.current).toFixed(4));
+    setdx(parseFloat(sp_x.current).toFixed(4));
     setdy(parseFloat(steps.current));
    
 
@@ -311,32 +344,38 @@ const right = useRef(0);
           {dy}
         </div>
       </div>
-
-      <div className="device-Z-container">
+      <div className="device-Ya-container">
         <div>
-          <span>omega max : </span>
+          <span>size : </span>
+          {dx}
+        </div>
+      </div>
+
+      {/* <div className="device-Z-container">
+        <div>
+          <span>acc ver : </span>
           {dx}
         </div>
       </div>
 
       <div className="device-Za-container">
         <div>
-          <span>omega alpha : </span>
+          <span>nan : </span>
           {X}
         </div>
       </div>
       <div className="device-X-container">
         <div>
-          <span>max up accn : </span>
+          <span>nan : </span>
           {Y}
         </div>
       </div>
       <div className="device-Zaa-container">
         <div>
-          <span>dist_var : </span>
+          <span>omega hor : </span>
           {Z}
         </div>
-      </div>
+      </div> */}
       {/* <div className="device-LowPassY-container">
         <div>
           <span>rate/sec: </span>
