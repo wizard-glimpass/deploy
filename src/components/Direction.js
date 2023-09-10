@@ -79,7 +79,7 @@ const Direction = () => {
   const [samplePoint, setDatapoint] = useState(0);
   const [deg, setDegree] = useState("Degree");
 
-  const dirRef = useRef();
+  const dirRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
   const accRef = useRef();
   const totalAccX = useRef(0);
   const totalAccY = useRef(0);
