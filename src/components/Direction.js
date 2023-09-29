@@ -13,6 +13,9 @@ import { readStepDetection, inertialFrame } from './helper';
 // const [previousY, setPreviousY] = useState(0);
 // const [previousX, setPreviousX] = useState(0);
 window.previousY = 0;
+// Assume this data is globally accessible
+let data = [["Timestamp", "accn_x", "accn_y", "accn_z", "sin_a", "sin_b", "sin_g", "rate_a", "rate_b", "rate_c","final_omega", "final.current"]];
+
 const useLowPassFilter = (alpha) => {
   
   const applyFilter = (input) => {
@@ -141,11 +144,6 @@ const lroh_push = useRef(0);
 const lroh_final = useRef(0);
 
 
-
-
-
-
-
   const handleMotion = (event) => {
     
        accRef.current = event.acceleration;
@@ -166,8 +164,6 @@ const lroh_final = useRef(0);
     //const filteredDataY = filter(accRef.current.y);
     //setLowPassY(parseFloat(filteredDataY).toFixed(2));
     
-
-    
     
     const acc_th = 0.1 ;
     const omega_th = 10;
@@ -176,7 +172,6 @@ const lroh_final = useRef(0);
     const force_th = 10 ;
     const travel_th = 4 ; 
 
-    
     
     let accn_x = parseInt(event.acceleration.x)
     if (Math.abs(accn_x) < acc_th ) { accn_x=0;}
@@ -191,12 +186,16 @@ const lroh_final = useRef(0);
     const rate_b = parseInt(event.rotationRate.beta)
     let rate_c = parseInt(event.rotationRate.gamma)
     const final_omega = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),rate_a,rate_b,rate_c)
-    rate_c = final_omega[2]
+    //rate_c = final_omega[2]
+
+    
 
     
     //windows.alert(sin_b)
     final.current = inertialFrame(sin_a* (Math.PI / 180),sin_b* (Math.PI / 180),sin_g* (Math.PI / 180),accn_x,accn_y,accn_z)
 
+    const timestamp = new Date().toISOString();
+    data.push([timestamp, accn_x, accn_y, accn_z, sin_a, sin_b, sin_g, rate_a, rate_b, rate_c, final_omega, final.current]);
 
     // accn vertical
     if (lrav_prev.current == -1 ) {
@@ -317,18 +316,79 @@ const lroh_final = useRef(0);
 
   
   useEffect(() => {
-    window.addEventListener("deviceorientation", handleOrientation, true);
-    window.addEventListener("devicemotion", handleMotion, true);
-    return () => {
-      window.removeEventListener("deviceorientation", handleOrientation, true);
-      window.removeEventListener("devicemotion", handleMotion, true);
-    };
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      DeviceOrientationEvent.requestPermission()
+        .then((response) => {
+          if (response == "granted") {
+          
+            window.addEventListener("deviceorientation", handleOrientation);
+            window.addEventListener("devicemotion", handleMotion);
+          }
+        })
+        .catch(console.error);
+    } else {
+      window.addEventListener("deviceorientation", handleOrientation);
+      window.addEventListener("devicemotion", handleMotion);
+    }
   }, []);
+
+
+  // const requestPermission = () => {
+  //   if (
+  //     typeof DeviceOrientationEvent !== "undefined" &&
+  //     typeof DeviceOrientationEvent.requestPermission === "function"
+  //   ) {
+  //     DeviceOrientationEvent.requestPermission()
+  //       .then((response) => {
+  //         if (response == "granted") {
+  //           window.addEventListener("deviceorientation", handleOrientation);
+  //           window.addEventListener("devicemotion", handleMotion);
+  //         }
+  //       })
+  //       .catch(console.error);
+  //   } else {
+  //     window.addEventListener("deviceorientation", handleOrientation);
+  //     window.addEventListener("devicemotion", handleMotion);
+  //   }
+
+  // };
+ 
+  // useEffect(() => {
+  //    requestPermission();
+  //   return () => {
+  //     // Cleanup
+  //     window.removeEventListener("deviceorientation", handleOrientation);
+  //     window.removeEventListener("devicemotion", handleMotion);
+  //   };
+  // }, []);
+
+  const downloadCSV=() => {
+    const csvContent = data.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Assuming you have a button with id 'downloadBtn'
+  
+ // document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+
 
   return (
     
     <>
       <div className="device-orientation-container">
+      
+
         <div>
           <span>alpha: </span>
           {parseInt(directionData.alpha)} {deg}
@@ -350,6 +410,7 @@ const lroh_final = useRef(0);
           {dx}
         </div>
       </div>
+      <button id="downloadBtn" onClick={downloadCSV}>Download CSV</button>
 
       {/* <div className="device-Z-container">
         <div>
